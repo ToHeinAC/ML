@@ -131,6 +131,36 @@ class SpecColumn_Remover(BaseEstimator, TransformerMixin):
         X = X.drop(columns = self.colnames_list)
         return X
 
+
+class StratTrainTest_Splitter(BaseEstimator, TransformerMixin):
+    def __init__(self, target, bins, labels, test_size = 0.3, random_state = 4711): # no *args or **kargs
+        self.target = target
+        self.bins = bins
+        self.labels = labels
+        self.test_size = test_size
+        self.random_state = random_state
+    def fit(self, X, y=None):
+        return self  # nothing else to do
+    def transform(self, X):
+        no_score = X[X[self.target].isna()]
+        score = X[X[self.target].notnull()]
+        print(no_score.shape)
+        print(score.shape)
+        # Stratification helper
+        score['strat_cat'] = pd.cut(score[self.target],self.bins,self.labels)
+        # Separate out the features and targets
+        features = score.drop(columns=self.target)
+        targets = pd.DataFrame(score[self.target])
+        # Replace the inf and -inf with nan (required for later imputation)
+        features = features.replace({np.inf: np.nan, -np.inf: np.nan})
+        # Split into training and testing set
+        from sklearn.model_selection import train_test_split
+        X, X_test, y, y_test = train_test_split(features, targets,
+                                                test_size = self.test_size, random_state = self.random_state, stratify = features['strat_cat'])
+        X.drop(columns=['strat_cat'],inplace=True)
+        X_test.drop(columns=['strat_cat'],inplace=True)
+        return X, X_test, y, y_test
+
 # Function to calculate missing values by column
 def missing_values_table(df):
         # Total missing values
