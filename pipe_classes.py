@@ -133,12 +133,13 @@ class SpecColumn_Remover(BaseEstimator, TransformerMixin):
 
 
 class StratTrainTest_Splitter(BaseEstimator, TransformerMixin):
-    def __init__(self, target, bins, labels, test_size = 0.3, random_state = 4711): # no *args or **kargs
+    def __init__(self, target, bins, labels, test_size = 0.3, random_state = 4711, verbose = False): # no *args or **kargs
         self.target = target
         self.bins = bins
         self.labels = labels
         self.test_size = test_size
         self.random_state = random_state
+        self.verbose = verbose
     def fit(self, X, y=None):
         return self  # nothing else to do
     def transform(self, X):
@@ -153,10 +154,26 @@ class StratTrainTest_Splitter(BaseEstimator, TransformerMixin):
         targets = pd.DataFrame(score[self.target])
         # Replace the inf and -inf with nan (required for later imputation)
         features = features.replace({np.inf: np.nan, -np.inf: np.nan})
+        #features['strat_cat'].hist()
         # Split into training and testing set
         from sklearn.model_selection import train_test_split
         X, X_test, y, y_test = train_test_split(features, targets,
                                                 test_size = self.test_size, random_state = self.random_state, stratify = features['strat_cat'])
+        if self.verbose == True:
+            def rp_cat_proportions(data):
+                return data['strat_cat'].value_counts() / len(data)
+
+            train_set, test_set = train_test_split(features, test_size=self.test_size, random_state=self.random_state)
+
+            compare_props = pd.DataFrame({
+                "Overall": rp_cat_proportions(features),
+                "Stratified": rp_cat_proportions(X_test),
+                "Random": rp_cat_proportions(test_set),
+            }).sort_index()
+            compare_props["Rand. %error"] = 100 * compare_props["Random"] / compare_props["Overall"] - 100
+            compare_props["Strat. %error"] = 100 * compare_props["Stratified"] / compare_props["Overall"] - 100
+            print(compare_props)
+
         X.drop(columns=['strat_cat'],inplace=True)
         X_test.drop(columns=['strat_cat'],inplace=True)
         return X, X_test, y, y_test
