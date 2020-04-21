@@ -68,6 +68,36 @@ class Feature_AdderEncoder(BaseEstimator, TransformerMixin):
 
         return X
 
+class Feature_Encoder(BaseEstimator, TransformerMixin):
+    def __init__(self, target, cat_list): # no *args or **kargs
+        self.target = target
+        self.cat_list = cat_list
+    def fit(self, X, y=None):
+        return self  # nothing else to do
+    def transform(self, X):
+        # Select the numeric columns
+        numeric_subset = X.select_dtypes('number')
+
+        # Select the chosen categorial subset
+        categorical_subset = X[self.cat_list]
+        # One hot encode
+        categorical_subset = pd.get_dummies(categorical_subset)
+
+        features = pd.concat([numeric_subset, categorical_subset], axis = 1)
+
+        # Drop buildings without an energy star score
+        X = features.dropna(subset = [self.target])
+
+        # Reset index for further manipulation in order to avoid problems
+        X.reset_index(inplace=True)
+
+        # replace all inf values
+        X.replace([np.inf, -np.inf], np.nan, inplace=True)
+
+        # set dtype in order to avoid problems
+        X = X.astype('float32')
+
+        return X
 
 class CollinearFeatures_Remover(BaseEstimator, TransformerMixin):
     def __init__(self, target, threshold=0.6): # colnames list
